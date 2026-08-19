@@ -1,0 +1,1 @@
+[{"values":["qa"],"name":"Environment"},{"values":["https://www.saucedemo.com"],"name":"Base_URL"},{"values":["v20.20.2"],"name":"Node_Version"},{"values":["linux x64"],"name":"Platform"},{"values":["GitHub Actions"],"name":"Executor"}]
