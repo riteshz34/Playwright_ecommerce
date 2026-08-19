@@ -1,0 +1,34 @@
+{
+  "$comment": [
+    "Project-scoped Playwright MCP server. Claude Code discovers this file",
+    "automatically when a session starts in this repository, so anyone who",
+    "clones the repo gets a browser-driving Claude with zero setup.",
+    "",
+    "Flag choices, all verified against `npx @playwright/mcp@latest --help`:",
+    "  --test-id-attribute=data-test  matches testIdAttribute in playwright.config.js,",
+    "                                 so locators Claude discovers are the locators",
+    "                                 the framework actually uses.",
+    "  --viewport-size                mirrors the suite's desktop viewport.",
+    "  --save-session                 records each MCP session for later review.",
+    "  --isolated                     keeps the browser profile in memory, so an",
+    "                                 exploration session never leaves stale cookies",
+    "                                 behind to poison the next one.",
+    "  --output-dir                   keeps MCP artefacts out of the test artefacts.",
+    "The browser defaults to the bundled Chromium; add \"--browser=firefox\" or",
+    "\"--browser=webkit\" to explore cross-browser behaviour."
+  ],
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest",
+        "--test-id-attribute=data-test",
+        "--viewport-size=1920,1080",
+        "--isolated",
+        "--save-session",
+        "--output-dir=.mcp-artifacts"
+      ]
+    }
+  }
+}

@@ -1,0 +1,62 @@
+# ---------------------------------------------------------------------------
+# Dependencies
+# ---------------------------------------------------------------------------
+node_modules/
+.npm/
+.pnp.*
+.yarn/
+
+# ---------------------------------------------------------------------------
+# Secrets and local environment
+# Only .env.example is committed; the real .env never is.
+# ---------------------------------------------------------------------------
+.env
+.env.local
+.env.*.local
+!.env.example
+secrets.json
+
+# ---------------------------------------------------------------------------
+# Test output and reports (regenerated on every run)
+# ---------------------------------------------------------------------------
+test-results/
+playwright-report/
+playwright/.cache/
+blob-report/
+all-blob-reports/
+allure-results/
+allure-report/
+.allure/
+
+# ---------------------------------------------------------------------------
+# Playwright MCP session artefacts
+# ---------------------------------------------------------------------------
+.mcp-artifacts/
+
+# ---------------------------------------------------------------------------
+# Claude Code local overrides
+# CLAUDE.md and .mcp.json ARE committed - they are part of the framework.
+# Only per-developer local settings are ignored.
+# ---------------------------------------------------------------------------
+.claude/settings.local.json
+
+# ---------------------------------------------------------------------------
+# Editors and OS
+# ---------------------------------------------------------------------------
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ---------------------------------------------------------------------------
+# Logs and temporary files
+# ---------------------------------------------------------------------------
+*.log
+npm-debug.log*
+logs/
+tmp/
+*.tmp

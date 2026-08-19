@@ -1,0 +1,60 @@
+{
+  "name": "playwright-ecommerce-pom-framework",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Playwright JavaScript UI automation framework for an e-commerce application, built on the Page Object Model with Allure reporting, parallel execution, CI/CD pipelines and Claude Code + Playwright MCP integration.",
+  "keywords": [
+    "playwright",
+    "javascript",
+    "page-object-model",
+    "allure",
+    "ci-cd",
+    "ecommerce",
+    "test-automation",
+    "mcp",
+    "claude"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:ui": "playwright test --ui",
+    "test:chromium": "playwright test --project=chromium",
+    "test:firefox": "playwright test --project=firefox",
+    "test:webkit": "playwright test --project=webkit",
+    "test:mobile": "playwright test --project=mobile-chrome",
+    "test:smoke": "playwright test --grep @smoke",
+    "test:regression": "playwright test --grep @regression",
+    "test:e2e": "playwright test --grep @e2e",
+    "test:serial": "playwright test --workers=1",
+    "test:parallel": "playwright test --workers=4",
+    "test:failed": "playwright test --last-failed",
+    "codegen": "playwright codegen https://www.saucedemo.com/",
+    "report:html": "playwright show-report",
+    "allure:clean": "rimraf allure-results allure-report",
+    "allure:generate": "allure generate allure-results --clean -o allure-report",
+    "allure:open": "allure open allure-report",
+    "allure:serve": "allure serve allure-results",
+    "allure:report": "npm run allure:generate && npm run allure:open",
+    "clean": "rimraf allure-results allure-report playwright-report test-results blob-report",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"**/*.{js,json,md,yml}\"",
+    "format:check": "prettier --check \"**/*.{js,json,md,yml}\"",
+    "prepare:ci": "playwright install --with-deps"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "allure-commandline": "^2.32.0",
+    "allure-playwright": "^3.0.7",
+    "dotenv": "^16.4.7",
+    "eslint": "^9.17.0",
+    "eslint-plugin-playwright": "^2.1.0",
+    "prettier": "^3.4.2",
+    "rimraf": "^6.0.1"
+  }
+}

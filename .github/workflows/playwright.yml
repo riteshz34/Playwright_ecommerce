@@ -1,0 +1,287 @@
+name: Playwright Regression
+
+# ---------------------------------------------------------------------------
+# Triggers
+#   push / pull_request : gate every change
+#   schedule            : nightly full run, catches environment drift
+#   workflow_dispatch   : manual run with a choice of suite and browser
+# ---------------------------------------------------------------------------
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+  schedule:
+    # 02:00 UTC every day
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: 'Which suite to run'
+        type: choice
+        default: regression
+        options: [smoke, regression, e2e, all]
+      browser:
+        description: 'Browser project'
+        type: choice
+        default: chromium
+        options: [chromium, firefox, webkit, mobile-chrome, all]
+      environment:
+        description: 'Target environment'
+        type: choice
+        default: qa
+        options: [dev, qa, staging, prod]
+
+# A new push to the same branch cancels the previous run: no point paying for
+# CI minutes on a commit that has already been superseded.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Credentials come from repository secrets, with fallbacks so that a fork
+  # without secrets configured can still run the suite against the public demo.
+  TEST_ENV: ${{ github.event.inputs.environment || 'qa' }}
+  STANDARD_USER: ${{ secrets.STANDARD_USER || 'standard_user' }}
+  USER_PASSWORD: ${{ secrets.USER_PASSWORD || 'secret_sauce' }}
+  HEADLESS: 'true'
+  RETRIES: '2'
+  FORCE_COLOR: '1'
+
+jobs:
+  # =========================================================================
+  # 1. Static checks - fail in seconds rather than after a browser run
+  # =========================================================================
+  lint:
+    name: Lint & format
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Prettier
+        run: npm run format:check
+
+  # =========================================================================
+  # 2. The test matrix
+  #
+  #    Two dimensions of parallelism multiply together:
+  #      - `shard`   splits the suite across 3 machines (Playwright's own
+  #                  --shard flag divides tests evenly and deterministically)
+  #      - `project` runs each shard against several browsers
+  #    Inside each job, `fullyParallel` + workers run tests concurrently again.
+  # =========================================================================
+  test:
+    name: ${{ matrix.project }} (shard ${{ matrix.shard }}/3)
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      # One browser failing must not cancel the others - a partial result is
+      # far more useful than no result when triaging.
+      fail-fast: false
+      matrix:
+        project: [chromium, firefox, webkit]
+        shard: [1, 2, 3]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Cache the browser binaries: they are ~1GB and rarely change, so this
+      # cuts several minutes off every run.
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps ${{ matrix.project }}
+
+      - name: Install OS dependencies (cached browsers)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps ${{ matrix.project }}
+
+      - name: Run Playwright tests
+        run: |
+          GREP=""
+          case "${{ github.event.inputs.suite }}" in
+            smoke)      GREP="--grep @smoke" ;;
+            e2e)        GREP="--grep @e2e" ;;
+            regression) GREP="--grep @regression" ;;
+            *)          GREP="" ;;
+          esac
+          npx playwright test \
+            --project=${{ matrix.project }} \
+            --shard=${{ matrix.shard }}/3 \
+            $GREP
+
+      # Raw Allure results from every shard, merged by the report job below.
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-${{ matrix.project }}-${{ matrix.shard }}
+          path: allure-results/
+          retention-days: 30
+          if-no-files-found: warn
+
+      # Blob reports let Playwright merge shards into one native HTML report.
+      - name: Upload blob report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: blob-report-${{ matrix.project }}-${{ matrix.shard }}
+          path: blob-report/
+          retention-days: 7
+          if-no-files-found: warn
+
+      # Traces are the single most valuable failure artefact: they replay the
+      # test with DOM snapshots, network activity and console output.
+      - name: Upload failure traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: traces-${{ matrix.project }}-${{ matrix.shard }}
+          path: test-results/
+          retention-days: 14
+          if-no-files-found: ignore
+
+  # =========================================================================
+  # 3. Merge every shard into one Allure report and publish it
+  # =========================================================================
+  report:
+    name: Publish Allure report
+    if: always()
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download all Allure results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: allure-results-*
+          merge-multiple: true
+          path: allure-results
+
+      # Retrieve the previous report's history so Allure can draw its trend
+      # graphs. Without this step every report looks like the first ever run.
+      - name: Restore Allure history
+        uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      - name: Seed history into results
+        run: |
+          if [ -d gh-pages/history ]; then
+            cp -r gh-pages/history allure-results/history
+            echo "Restored Allure history for trend graphs."
+          else
+            echo "No previous history found - this report starts the trend."
+          fi
+
+      - name: Generate Allure report
+        run: npx allure generate allure-results --clean -o allure-report
+
+      - name: Upload Allure report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report
+          path: allure-report/
+          retention-days: 30
+
+      # Published only from the default branch: pull requests should not be able
+      # to overwrite the canonical report.
+      - name: Publish to GitHub Pages
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: allure-report
+          keep_files: false
+
+      # Playwright's own sharded-report merge, kept alongside Allure because the
+      # native report embeds the traces and is the fastest way to debug one
+      # specific failure.
+      - name: Download blob reports from all shards
+        if: always()
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: blob-report-*
+          merge-multiple: true
+          path: all-blob-reports
+
+      - name: Merge into a single Playwright HTML report
+        if: always()
+        continue-on-error: true
+        run: npx playwright merge-reports --reporter=html ./all-blob-reports
+
+      - name: Upload merged Playwright HTML report
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-html-report
+          path: playwright-report/
+          retention-days: 14
+
+      - name: Write run summary
+        if: always()
+        run: |
+          TOTAL=$(node -e "try{const s=require('./allure-report/widgets/summary.json');console.log(s.statistic.total)}catch(e){console.log(0)}")
+          PASSED=$(node -e "try{const s=require('./allure-report/widgets/summary.json');console.log(s.statistic.passed)}catch(e){console.log(0)}")
+          FAILED=$(node -e "try{const s=require('./allure-report/widgets/summary.json');console.log(s.statistic.failed)}catch(e){console.log(0)}")
+          BROKEN=$(node -e "try{const s=require('./allure-report/widgets/summary.json');console.log(s.statistic.broken)}catch(e){console.log(0)}")
+          {
+            echo "## Playwright Regression Results"
+            echo ""
+            echo "| Metric | Count |"
+            echo "| --- | --- |"
+            echo "| Total | $TOTAL |"
+            echo "| Passed | $PASSED |"
+            echo "| Failed | $FAILED |"
+            echo "| Broken | $BROKEN |"
+            echo ""
+            echo "Environment: \`${TEST_ENV}\` — triggered by \`${{ github.event_name }}\`"
+            echo ""
+            echo "The full Allure report is attached as the **allure-report** artefact."
+          } >> "$GITHUB_STEP_SUMMARY"
