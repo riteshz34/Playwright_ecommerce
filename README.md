@@ -1,6 +1,6 @@
 # Playwright E-Commerce Automation Framework
 
-[![Playwright Regression](https://github.com/YOUR_USERNAME/playwright-ecommerce-pom-framework/actions/workflows/playwright.yml/badge.svg)](https://github.com/YOUR_USERNAME/playwright-ecommerce-pom-framework/actions/workflows/playwright.yml)
+[![Playwright Regression](https://github.com/riteshz34/Playwright_ecommerce/actions/workflows/playwright.yml/badge.svg)](https://github.com/riteshz34/Playwright_ecommerce/actions/workflows/playwright.yml)
 [![Playwright](https://img.shields.io/badge/Playwright-1.62-2EAD33?logo=playwright&logoColor=white)](https://playwright.dev/)
 [![Node](https://img.shields.io/badge/Node.js-%E2%89%A518-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
 [![Allure](https://img.shields.io/badge/Allure-Report-FF6D00)](https://allurereport.org/)
@@ -165,8 +165,8 @@ Everything else, including the browsers, is installed by npm.
 
 ```bash
 # 1. Clone
-git clone https://github.com/YOUR_USERNAME/playwright-ecommerce-pom-framework.git
-cd playwright-ecommerce-pom-framework
+git clone https://github.com/riteshz34/Playwright_ecommerce.git
+cd Playwright_ecommerce
 
 # 2. Dependencies
 npm ci                 # use `npm install` if you have no package-lock.json
@@ -226,6 +226,12 @@ npx allure --version
 ---
 
 ## Running the tests
+
+> **Use `npm run` for every script except `test`.** `npm test` is the one npm
+> special-cases; everything else needs `run`. So `npm run test:chromium` works,
+> but `npm test test:chromium` does **not** — npm forwards the extra word to
+> Playwright as a _test-file filter_, Playwright finds no file matching
+> `test:chromium`, and you get `Error: No tests found`.
 
 ```bash
 # Everything, all 5 projects (185 executions, ~1.6 min)
@@ -691,8 +697,7 @@ login duration.
 1. Push to `main`. The workflow runs and creates a `gh-pages` branch.
 2. **Settings → Pages → Source: `gh-pages` branch**.
 3. The report appears at
-   `https://YOUR_USERNAME.github.io/playwright-ecommerce-pom-framework/`.
-4. Replace `YOUR_USERNAME` in this README's badge URLs.
+   `https://riteshz34.github.io/Playwright_ecommerce/`.
 
 Optional repository secrets (`Settings → Secrets and variables → Actions`) —
 `STANDARD_USER`, `USER_PASSWORD`. Without them the workflow falls back to the
@@ -851,7 +856,7 @@ copy, the `problem_user` image defect — all observed, none guessed.
 
 ```bash
 npm install -g @anthropic-ai/claude-code   # if not already installed
-cd playwright-ecommerce-pom-framework
+cd Playwright_ecommerce
 claude                                     # .mcp.json + CLAUDE.md load automatically
 ```
 
@@ -1011,6 +1016,43 @@ replays the exact failing run:
 ```bash
 npx playwright show-trace path/to/trace.zip
 ```
+
+</details>
+
+<details>
+<summary><b><code>EADDRINUSE :9323</code> when opening the HTML report</b></summary>
+
+Playwright's report server defaults to port 9323, and an earlier
+`show-report` left running still holds it. Either reuse that already-open
+browser tab, or free the port:
+
+```bash
+lsof -ti:9323 | xargs kill -9     # macOS / Linux
+npx playwright show-report
+```
+
+Or simply serve it somewhere else:
+
+```bash
+npx playwright show-report --port 9324
+```
+
+</details>
+
+<details>
+<summary><b><code>Error: No tests found</code></b></summary>
+
+Almost always a missing `run`. `npm test test:chromium` forwards
+`test:chromium` to Playwright as a filename filter; use `npm run test:chromium`.
+
+The same applies to any argument you meant for Playwright — pass it after `--`:
+
+```bash
+npm test -- --project=chromium --grep "TC-020"
+```
+
+Check what a script actually expands to with `npm run` (no arguments), which
+lists every script in `package.json`.
 
 </details>
 
