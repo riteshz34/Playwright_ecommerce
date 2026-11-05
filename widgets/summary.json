@@ -1,1 +1,1 @@
-{"reportName":"Playwright E-Commerce Regression","testRuns":[],"statistic":{"failed":75,"broken":0,"skipped":0,"passed":36,"unknown":0,"total":111},"time":{"start":1793781581175,"stop":1793781676432,"duration":95257,"minDuration":2,"maxDuration":7708,"sumDuration":70884}}
+{"reportName":"Playwright E-Commerce Regression","testRuns":[],"statistic":{"failed":75,"broken":0,"skipped":0,"passed":36,"unknown":0,"total":111},"time":{"start":1793869173476,"stop":1793869208625,"duration":35149,"minDuration":3,"maxDuration":7827,"sumDuration":73525}}
